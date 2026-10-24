@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>迷你网盘 - 公告与使用须知</title>
+<style>
+  :root { --blue:#1e6fd9; --blue-dark:#1558b0; --text:#1a1a1a; --muted:#7a7a7a; --line:#e5e5e5; --bg:#ffffff; --warn:#fff8e1; --warn-line:#f0c36d; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"Microsoft YaHei",system-ui,sans-serif; background:var(--bg); color:var(--text); line-height:1.75; }
+  .wrap { max-width:860px; margin:0 auto; padding:32px 20px 80px; }
+  .back { display:inline-block; margin-bottom:18px; color:var(--blue); text-decoration:none; font-size:14px; }
+  .back:hover { text-decoration:underline; }
+  h1 { font-size:26px; margin-bottom:6px; }
+  .sub { color:var(--muted); font-size:14px; margin-bottom:24px; }
+  .pub { background:#eaf3ff; border:1px solid #bcd8f7; border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:14px; word-break:break-all; }
+  .pub a { color:var(--blue); font-weight:600; }
+  h2 { font-size:19px; margin:34px 0 12px; padding-left:10px; border-left:4px solid var(--blue); }
+  table { border-collapse:collapse; width:100%; margin:10px 0; font-size:14px; }
+  th,td { border:1px solid var(--line); padding:8px 12px; text-align:left; vertical-align:top; }
+  th { background:#f5f8fc; }
+  ul,ol { padding-left:22px; }
+  li { margin:6px 0; }
+  .law { background:var(--warn); border:1px solid var(--warn-line); border-radius:8px; padding:16px 20px; margin:12px 0; font-size:14px; }
+  .law b { color:#b26a00; }
+  code { background:#f2f4f7; border:1px solid var(--line); border-radius:4px; padding:1px 6px; font-size:13px; }
+  .shot { width:100%; border:1px solid var(--line); border-radius:8px; margin:10px 0 20px; display:block; }
+  .cap { color:var(--muted); font-size:13px; margin:-14px 0 20px; }
+  .attack { background:#fdecec; border:1px solid #f3b6b6; border-radius:8px; padding:14px 18px; font-size:14px; margin:12px 0; }
+  .remove { background:#fff0f0; border:1px solid #f0a0a0; border-radius:8px; padding:14px 18px; font-size:14px; margin:12px 0; }
+  .remove b { color:#c0392b; }
+  footer { margin-top:48px; color:var(--muted); font-size:13px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<a class="back" href="/">&larr; 返回 迷你网盘 首页</a>
+<h1>迷你网盘 - 公告与使用须知</h1>
+<div class="sub">一个跑在家用笔记本上的公共网盘，已通过 Cloudflare Tunnel 公开到公网。无需登录，无需注册，打开网页就能用。</div>
+
+<div class="pub">
+  🌐 <b>固定公网地址：</b><a href="https://nas.ciallo0721-cmd.top/">https://nas.ciallo0721-cmd.top/</a><br>
+  ✅ 这是<b>固定地址</b>，不会像临时隧道那样重启就变，可以放心收藏。
+</div>
+
+<div class="remove">
+  🗓️ <b>重要：本站将于 2027 年 6 月拆除！</b><br>
+  届时服务会停止、所有文件将被清空。<b>请务必提前把你需要的东西下载保存到自己的设备里，以免丢失。</b>拆除前后不会单独通知，看到这条公告就当通知了喵。
+</div>
+
+<h2>🌐 这是公用的！</h2>
+<ul>
+  <li>本站<b>完全公开、无需登录</b>，<b>任何人都可以上传、访问、在线预览</b>内容；<b>删除和新建文件夹只有管理员能操作</b>（重要文件有备份，但你自己的东西请自行保管）。</li>
+  <li>你可以随便上传：拖拽上传、多文件上传、<b>整个文件夹上传（保留目录结构）</b>，不限制文件大小。</li>
+  <li>图片、视频、音频、文本、PDF 都支持<b>在线直接看</b>，不用下载到本地。</li>
+  <li><b>不要上传隐私 / 私人文件</b> —— 任何人都能看到和下载它们。这里不是保险箱。</li>
+  <li><b>不要试图破坏本站</b> —— 下面是真实日志截图，你的一举一动都被记着，别闹。</li>
+</ul>
+
+<h2>✅ 你可以干什么</h2>
+<table>
+  <tr><th>功能</th><th>说明</th></tr>
+  <tr><td>浏览文件</td><td>首页即可查看网盘上的所有文件和文件夹</td></tr>
+  <tr><td>随便上传</td><td>支持拖拽上传、多文件上传、<b>整个文件夹上传（保留目录结构）</b>，不限制文件大小</td></tr>
+  <tr><td>在线预览</td><td>图片点开看大图（可左右翻页），视频/音频直接播放（支持拖进度条），文本和 PDF 也能直接看</td></tr>
+  <tr><td>下载</td><td>点文件即可下载回本地</td></tr>
+  <tr><td>删除 / 新建文件夹</td><td><b>仅管理员</b>（在 /admin1/ 用口令登录后可用），普通访客看不到这两个按钮</td></tr>
+</table>
+
+<h2>🚫 不许干什么</h2>
+<ol>
+  <li><b>不许上传违法内容</b> —— 涉政、色情、暴力、病毒木马、盗版资源、他人隐私等一律禁止。</li>
+  <li><b>不许当网盘商用 / 长期囤文件</b> —— 这只是个小笔记本，空间有限（C 盘最多 100MB 兜底 + D/E 盘写满为止），管理员会定期清理。</li>
+  <li><b>不许恶意刷接口、扫描路径、试图破坏本站</b> —— 扫描器会被请去喝茶（418 I'm a teapot），真人操作全程有日志记录，别抱侥幸心理。</li>
+</ol>
+
+<h2>📜 免责声明（重要，必读）</h2>
+<div class="law">
+  <ul>
+    <li>本网盘 <b>完全公开、无需登录</b>，任何人都可以上传、下载、在线预览内容；删除权限仅限管理员。</li>
+    <li>管理员不对用户上传的内容做实时审核，<b>用户上传一切内容产生的任何后果由上传者自行承担</b>。</li>
+    <li><b>不要上传任何隐私/敏感/重要文件</b>——任何人都能看到和下载它们。这里不是保险箱，是公共草稿箱。</li>
+    <li>本站将于 <b>2027 年 6 月拆除</b>，届时所有文件会被清空，<b>请自行提前备份</b>，不承诺任何数据保留。</li>
+    <li>文件平时可能因磁盘写满、服务重启、管理员清理而丢失，<b>不承诺任何数据保留</b>。</li>
+    <li>管理员保留删文件、封地址、关服务的权利，且无需提前通知。</li>
+    <li>继续使用即视为已阅读并同意以上全部条款。</li>
+  </ul>
+</div>
+
+<h2>🧱 它是怎么工作的（技术向）</h2>
+<ul>
+  <li>一台 Windows 笔记本 + Python Flask，端口 80。</li>
+  <li>C/D/E 三个盘的 <code>NAS</code> 文件夹被合并成一块"虚拟硬盘"，存储格式为自定义的 <code>[n"文件名"]内容[ed]</code> 块。</li>
+  <li>C 盘写满自动续 D 盘，D 满续 E 盘；三个全满会上报错误，不会写坏文件。</li>
+  <li>每个盘预留 5MB 安全空间，C 盘（系统盘）最多占用 100MB 兜底。</li>
+  <li>文件索引在 <code>index.json</code>，索引损坏可通过 <code>POST /api/repair</code> 按时间顺序扫描重建。</li>
+  <li>公网访问走 <b>Cloudflare 固定 Named Tunnel</b>（固定地址 <code>nas.ciallo0721-cmd.top</code>，不会因重启而变动）。</li>
+  <li>全站日志：所有 HTTP 请求（含恶意扫描/攻击尝试）均记录在案。</li>
+</ul>
+
+<h2>📸 日志实拍（看看本站有多"认真"）</h2>
+<p>正常运行时每一次上传、下载、建目录都有记录：</p>
+<img class="shot" src="/static/images/log-1.png" alt="正常日志">
+<img class="shot" src="/static/images/log-2.png" alt="下载记录">
+<img class="shot" src="/static/images/log-3.png" alt="多窗口运行">
+<p>连恶意扫描也不放过——下面是真实捕获的攻击尝试：扫描器用随机路径疯狂探测、试探 <code>/ws</code> WebSocket 端口，全部被 <code>[404][Err]</code> 记录在案：</p>
+<img class="shot" src="/static/images/log-attack.png" alt="攻击尝试被记录">
+<div class="attack">😈 别抱侥幸心理，你的一举一动都在日志里喵。想破坏？先想想自己愿不愿意上这个截图墙。</div>
+
+<footer>迷你网盘 公告页 · 由管理员维护 · <a href="/" style="color:var(--blue)">回到首页</a></footer>
+
+</div>
+</body>
+</html>

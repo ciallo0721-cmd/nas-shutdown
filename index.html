@@ -223,6 +223,54 @@
     letter-spacing: 0.08em;
   }
 
+  /* 停服原因 */
+  .reasons {
+    margin-top: 30px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .reason {
+    display: flex;
+    gap: 14px;
+    padding: 15px 17px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.032);
+    border: 1px solid var(--line);
+  }
+
+  .reason .no {
+    flex-shrink: 0;
+    padding-top: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.1em;
+  }
+
+  .reason h2 {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #ece5f9;
+    line-height: 1.5;
+    margin-bottom: 3px;
+  }
+
+  .reason p {
+    font-size: 13.5px;
+    line-height: 1.62;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .reason.sorry {
+    background: rgba(255, 138, 138, 0.055);
+    border-color: rgba(255, 138, 138, 0.18);
+  }
+
+  .reason.sorry h2 { color: #ffb0b0; }
+  .reason.sorry p { color: #d6b9bd; }
+
   /* 状态清单 */
   .status {
     margin-top: 32px;
@@ -243,6 +291,46 @@
   .row dd { color: #ddd4ee; font-weight: 500; text-align: right; }
   .row dd.off { color: #ff8a8a; }
   .row dd.keep { color: #7fe3c8; }
+
+  /* 存档入口 */
+  .archive {
+    margin-top: 26px;
+    padding: 15px 17px;
+    border-radius: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.16);
+    font-size: 13px;
+    color: var(--ink-soft);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    line-height: 1.7;
+  }
+
+  .archive b {
+    font-weight: 600;
+    color: #cfc2ef;
+    margin-right: 2px;
+  }
+
+  .archive a {
+    color: #c9bcf0;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(179, 156, 255, 0.32);
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .archive a:hover, .archive a:focus-visible {
+    color: #fff;
+    border-color: #fff;
+    outline: none;
+  }
+
+  .archive .hint {
+    font-size: 11.5px;
+    color: var(--ink-faint);
+  }
 
   /* 底部 */
   .foot {
@@ -324,6 +412,30 @@
     <p>所以这不算是告别，更像是把灯关了，人还在屋里。</p>
   </div>
 
+  <div class="reasons">
+    <div class="reason">
+      <div class="no">01</div>
+      <div>
+        <h2>老笔记本撑不住了</h2>
+        <p>那台机器跑了太久，真的到极限了。</p>
+      </div>
+    </div>
+    <div class="reason">
+      <div class="no">02</div>
+      <div>
+        <h2>没人来，没人看，全是机器人</h2>
+        <p>本来是给人用的，结果每天来的只有爬虫。一个人守着一台嗡嗡响的旧笔记本，挺没意思的。</p>
+      </div>
+    </div>
+    <div class="reason sorry">
+      <div class="no">03</div>
+      <div>
+        <h2>致想用这个的学生们</h2>
+        <p>抱歉，用不了了。</p>
+      </div>
+    </div>
+  </div>
+
   <div class="sign">—— ciallo</div>
 
   <dl class="status">
@@ -332,6 +444,14 @@
     <div class="row"><dt>数据</dt><dd class="keep">完整保留</dd></div>
     <div class="row"><dt>域名</dt><dd class="keep">保留，指向本页</dd></div>
   </dl>
+
+  <div class="archive">
+    <b>存档</b>
+    <a href="https://github.com/ciallo0721-cmd/nas-shutdown/tree/main/源码">源码</a>
+    <span>·</span>
+    <a href="https://github.com/ciallo0721-cmd/nas-shutdown/releases">数据块</a>
+    <span class="hint">（只抢救出一部分照片，不是完整备份）</span>
+  </div>
 
   <div class="foot">
     <a class="back" href="https://ciallo0721-cmd.top">回到主站 <span>→</span></a>

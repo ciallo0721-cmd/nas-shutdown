@@ -1,0 +1,893 @@
+# -*- coding: utf-8 -*-
+"""
+MiniNAS - 家庭内网NAS
+把 C/D/E 盘的 NAS 文件夹合并成一块"虚拟硬盘"。
+存储格式: [n"文件名"]<二进制内容>[ed]  (nas文件不带后缀)
+C盘写满了自动续到D盘, D满了续E, 三个都满就报错。
+端口: 80 (浏览器直接 http://笔记本IP/ 访问)
+
+日志: 全项目统一走 nlog.py, 详细彩色输出(用户钦定格式)。
+"""
+import os
+import re
+import json
+import uuid
+import shutil
+import traceback
+import platform
+import threading
+import time
+from flask import (Flask, request, jsonify, render_template, send_file,
+                   abort, redirect)
+from werkzeug.exceptions import HTTPException
+
+import nlog       # 统一彩色日志库
+import nas_auth   # 管理员口令(AES-256)与会话令牌
+
+# ================= 配置 =================
+HOST = '0.0.0.0'
+PORT = int(os.environ.get('NAS_PORT', 80))  # 端口80; NAS_PORT环境变量仅测试用
+DRIVE_LETTERS = ['C', 'D', 'E']  # 按你的要求: C/D/E 三个盘
+RESERVE = 5 * 1024 * 1024      # 每个盘预留5MB, 别把盘吃到一毛不剩
+MIN_CHUNK = 1 * 1024 * 1024    # 一个盘至少要有1MB可用才往里写
+STREAM = 1024 * 1024           # 每次读写1MB
+CHUNK_NAME = 'nas'             # 存储文件不带后缀
+# C盘是系统盘: NAS内容最多占100MB兜底, 写满自动跳D/E (没列出的盘不限)
+DRIVE_CAP = {'C': 100 * 1024 * 1024}
+# ========================================
+
+app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = None  # 不限制上传大小
+
+_lock = threading.Lock()
+_cleaned = False   # 超长孤儿块只清一次
+
+
+# ================= 扫描器蜜罐 =================
+# 谁扫 robots / ws / admin / sitemap, 一律 418 请去喝茶: I'm a teapot
+_SCAN_RE = re.compile(
+    r'^/(?:robots(?:\.txt)?|ws|admin|sitemap(?:\.xml|\.txt|_index\.xml)?)(?:/.*)?$',
+    re.I)
+_TEAPOT_LINE = "418 I'm a teapot - 我是茶壶，这里没有你要的东西\n"
+_ROBOTS_LINE = "nothing喵喵喵喵喵喵喵喵喵喵喵\n"
+
+
+@app.before_request
+def _teapot_honeypot():
+    """扫描器探针拦截: 直接 418 (RFC 2324), 什么都不给它"""
+    path = request.path or '/'
+    if not _SCAN_RE.match(path):
+        return None
+    try:
+        nlog.warn('扫描器蜜罐命中: %s %s <- %s → 418 我是茶壶' % (
+            request.method, path, request.remote_addr or '?'))
+    except Exception:
+        pass
+    body = _TEAPOT_LINE
+    if path.lower().lstrip('/').startswith('robots'):
+        body += _ROBOTS_LINE          # 给爬虫留句话: nothing喵喵喵...
+    resp = app.response_class(body, status=418, mimetype='text/plain')
+    resp.headers['Server'] = 'teapot/1.0'
+    resp.headers['X-Honeypot'] = 'nothing-meow'
+    return resp
+# =============================================
+
+
+@app.after_request
+def _http_access_log(resp):
+    """每个 HTTP 请求一行日志: [时间] GET "/path" [200] [OK]"""
+    try:
+        nlog.http(request.method, request.path, resp.status_code)
+    except Exception:
+        pass
+    return resp
+
+
+# ================= 错误页面 =================
+# 4xx/5xx 统一渲染 templates/error.html; /api/* 保持返回 JSON
+_ERROR_PAGES = {
+    400: ('请求格式不对', '服务器没看懂你发来的东西，检查一下参数和请求体喵~'),
+    401: ('需要登录', '这扇门要钥匙才能进，先通过身份验证再说'),
+    403: ('禁止访问', '你的权限不够，这个内容不给你看'),
+    404: ('页面走丢了', '你要找的东西不在这台 NAS 上，检查一下地址喵~'),
+    405: ('方法不允许', '这个地址不接受你用的请求方式（GET/POST…）'),
+    408: ('请求超时', '等太久了连接断了，重试一次试试'),
+    429: ('请求太频繁', '慢点慢点，NAS 要被你刷冒烟了'),
+    500: ('服务器开小差', '内部出了点错，去 MiniNAS.log 翻 [Err] 日志看详情'),
+    501: ('功能还没实现', '这个功能 NAS 还没学会，敬请期待'),
+    502: ('网关错误', '上游服务没给回应'),
+    503: ('服务暂不可用', 'NAS 正在忙或重启中，稍后再试'),
+    504: ('网关超时', '上游服务响应太慢了'),
+}
+
+
+def _error_page(e):
+    """统一错误出口: 页面 -> 精美错误页; API -> JSON"""
+    if isinstance(e, HTTPException):
+        code = e.code or 500
+    else:
+        code = 500
+        # 未捕获异常: 详细 traceback 进日志 (verbose!)
+        nlog.err('未处理异常 [%s]: %s' % (type(e).__name__, e))
+        for ln in traceback.format_exception(type(e), e, e.__traceback__):
+            nlog.detail(ln.rstrip())
+    title, msg = _ERROR_PAGES.get(code, ('出错了', '发生了未知错误，看看日志怎么说'))
+    if request.path.startswith('/api/'):
+        return jsonify({'ok': False, 'code': code, 'error': title}), code
+    return render_template('error.html', code=code, title=title, msg=msg,
+                           path=request.path), code
+
+
+for _code in list(_ERROR_PAGES):
+    app.register_error_handler(_code, _error_page)
+app.register_error_handler(Exception, _error_page)  # 兜底 500 / 未捕获异常
+
+
+# ================= 权限模型 =================
+# guest (默认, 无需登录): 浏览 / 下载 / 在线预览 / 上传
+# admin (在 /admin1/ 输入口令登录后): 额外 删除 / 新建文件夹 / 重建索引
+ADMIN_PATH = '/admin1/'
+
+
+def cur_level():
+    """当前身份: 'admin'(已登录) 或 'guest'(默认)"""
+    if nas_auth.check_token(request.cookies.get(nas_auth.COOKIE_NAME)):
+        return 'admin'
+    return 'guest'
+
+
+def need_auth():
+    """浏览类接口: 所有人放行"""
+    return None
+
+
+def need_admin():
+    """写操作(删除/新建文件夹/重建索引): 必须是管理员"""
+    if cur_level() != 'admin':
+        nlog.warn('拒绝非管理员操作: %s %s <- %s' % (
+            request.method, request.path, request.remote_addr or '?'))
+        return jsonify({'ok': False, 'error': '这是管理员操作，先去 /admin1/ 登录喵'}), 403
+    return None
+
+
+def _is_admin():
+    return cur_level() == 'admin'
+
+
+HEADER_RE = re.compile(rb'^\[n("(?:\\.|[^"\\])*")\]', re.S)
+
+
+def drives():
+    """实际存在的盘 (比如笔记本只有C和D, E是U盘插上才有)"""
+    return [d for d in DRIVE_LETTERS if os.path.exists(d + ':\\')]
+
+
+def nas_dir(drive):
+    return f'{drive}:\\NAS'
+
+
+def init_dirs():
+    for d in drives():
+        os.makedirs(nas_dir(d), exist_ok=True)
+
+
+def index_path():
+    """索引放在第一个可用盘的NAS文件夹里"""
+    for d in drives():
+        return os.path.join(nas_dir(d), 'index.json')
+    return None
+
+
+def load_index():
+    p = index_path()
+    if p and os.path.exists(p):
+        try:
+            with open(p, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            nlog.warn('索引损坏? %s (稍后可 POST /api/repair 重建)' % e)
+    return {}
+
+
+def save_index(idx):
+    p = index_path()
+    if not p:
+        raise RuntimeError('没有任何可用磁盘 (C/D/E 都不存在?)')
+    tmp = p + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(idx, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, p)
+
+
+def encode_header(name):
+    """文件名 -> [n"xxx"]  (json转义, 引号反斜杠都安全)"""
+    return ('[n' + json.dumps(name) + ']').encode('utf-8')
+
+
+def parse_header(data):
+    """从 nas 文件开头解析 [n"xxx"] , 返回 (文件名, 剩余二进制)"""
+    m = HEADER_RE.match(data)
+    if not m:
+        return None, data
+    try:
+        name = json.loads(m.group(1).decode('utf-8'))
+    except Exception:
+        name = m.group(1).decode('utf-8', 'replace')
+    return name, data[m.end():]
+
+
+class NoSpaceError(Exception):
+    pass
+
+
+def clean_junk_chunks():
+    """
+    旧版bug(起名无限加x)生成的超长 nasxxx... 孤儿块:
+    索引里没引用 + 名字带30个以上连续x → 确认是垃圾, 删掉释放盘空间。
+    只清理这类明确垃圾, 不动任何正常块。
+    """
+    nlog.info('扫描超长孤儿块 (旧版bug产生的 nasxxx... 垃圾)...')
+    try:
+        idx = load_index()
+    except Exception:
+        idx = {}
+    refs = set()
+    for e in idx.values():
+        for p in e.get('chunks', []):
+            try:
+                refs.add(os.path.basename(p).lower())
+            except (TypeError, AttributeError):
+                pass
+    removed = 0
+    for d in drives():
+        nd = nas_dir(d)
+        if not os.path.isdir(nd):
+            continue
+        for fn in os.listdir(nd):
+            if not fn.startswith('nas'):
+                continue
+            if fn.lower() in refs:
+                continue
+            if 'x' * 30 in fn:
+                try:
+                    os.remove(os.path.join(nd, fn))
+                    nlog.detail('  删除孤儿块: %s\\%s' % (d, fn))
+                    removed += 1
+                except OSError:
+                    pass
+    if removed:
+        nlog.ok('清理完成: 删除了 %d 个旧bug超长孤儿块' % removed)
+    else:
+        nlog.ok('扫描完成: 没有发现超长孤儿块')
+
+
+def drive_usage(drive):
+    """该盘 NAS 文件夹里已占用的字节数 (索引不算)"""
+    nd = nas_dir(drive)
+    total = 0
+    if os.path.isdir(nd):
+        for fn in os.listdir(nd):
+            if fn.startswith('nas'):
+                try:
+                    total += os.path.getsize(os.path.join(nd, fn))
+                except OSError:
+                    pass
+    return total
+
+
+def select_drive():
+    """挑一个能写的盘: 空闲够 + 不超过单盘上限(DRIVE_CAP), 返回(盘符, 本次预算)"""
+    for d in drives():
+        free = shutil.disk_usage(d + ':\\').free
+        budget = free - RESERVE
+        cap = DRIVE_CAP.get(d)
+        if cap is not None:
+            budget = min(budget, cap - drive_usage(d))  # C盘兜底100MB
+        if budget >= MIN_CHUNK:
+            return d, budget
+    return None, 0
+
+
+def stream_to_chunks(fileobj, name):
+    """
+    核心逻辑: 把上传的文件流写进 C/D/E 的 NAS 文件夹。
+    - 第一个块: [n"文件名"]二进制...
+    - 写满换盘, 续块: 二进制...(无头部)
+    - 每个块结尾: [ed]
+    - C 盘只存 DRIVE_CAP 上限(默认100MB), 满了自动续 D/E
+    返回块路径列表。
+    """
+    chunks = []
+    header = encode_header(name)
+    first = True
+    content_bytes = 0
+    cur = None   # 正在写的这个块(出错时要一起清掉)
+    t0 = time.time()
+
+    try:
+        while True:
+            # 找一个有空间的盘 (考虑单盘上限)
+            target, budget = select_drive()
+            if target is None:
+                raise NoSpaceError('所有磁盘空间都用完（C盘已到100MB兜底上限）！删点东西或换U盘再传吧。')
+
+            # 起块名: nas, nas1, nas2... (旧版会 nasxxx 无限加x, 文件名超255字节直接Errno22崩)
+            base = os.path.join(nas_dir(target), CHUNK_NAME)
+            chunk_path = base
+            n = 1
+            while os.path.exists(chunk_path):
+                chunk_path = f'{base}{n}'
+                n += 1
+
+            cur = chunk_path
+            written = 0
+            done = False
+            with open(chunk_path, 'wb') as f:
+                if first:
+                    f.write(header)
+                    written += len(header)
+                    first = False
+                while written < budget:
+                    data = fileobj.read(min(STREAM, budget - written))
+                    if not data:
+                        done = True
+                        break
+                    f.write(data)
+                    written += len(data)
+                    content_bytes += len(data)
+                f.write(b'[ed]')
+            nlog.detail('  写入块 %s (+%d字节) 累计 %d' % (
+                chunk_path, written, content_bytes))
+            chunks.append(chunk_path)
+            cur = None
+            if done:
+                return chunks, content_bytes
+    except Exception:
+        # 任何异常(断线/超长/没空间): 已写块全回滚, 不留孤儿把盘塞满
+        nlog.err('写入中断, 回滚已写块...')
+        for c in chunks + ([cur] if cur else []):
+            try:
+                os.remove(c)
+                nlog.detail('  已删除半成品块: %s' % c)
+            except OSError:
+                pass
+        raise
+    finally:
+        nlog.detail('  分块写入耗时 %.3f 秒' % (time.time() - t0))
+
+
+def iter_entry_data(entry):
+    """把一个条目的所有块拼回原始二进制 (下载/恢复用)"""
+    n = len(entry['chunks'])
+    for i, p in enumerate(entry['chunks']):
+        if not os.path.exists(p):
+            raise RuntimeError(f'存储块丢失: {p}')
+        size = os.path.getsize(p)
+        with open(p, 'rb') as f:
+            if i == 0:
+                head = f.read(8192)
+                _, rest = parse_header(head)
+                head_len = len(head) - len(rest)
+                # 首段最多只能给 块大小-头部-([ed]若为末块) 这么多内容
+                allowed = size - head_len - (4 if i == n - 1 else 0)
+                yield rest[:allowed]
+            # 从当前位置继续读到块尾; 末块去掉结尾的 [ed] (4字节!)
+            body_left = size - f.tell() - (4 if i == n - 1 else 0)
+            body_left = max(body_left, 0)
+            while body_left > 0:
+                buf = f.read(min(STREAM, body_left))
+                if not buf:
+                    break
+                body_left -= len(buf)
+                yield buf
+
+
+def _human(n):
+    """字节数 -> 人类可读"""
+    for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+        if n < 1024 or unit == 'TB':
+            return '%.1f%s' % (n, unit)
+        n /= 1024
+    return '%dB' % n
+
+
+def disk_stat(drive):
+    """
+    单盘统计 (一次算全, 上传/展示都从这里取):
+      total/free/used     —— 整盘(含 Windows、程序、缓存…… 系统文件)
+      nas_used            —— 只有 NAS 文件夹里 nas* 块
+      nas_cap             —— 单盘上限 (C 盘 100MB, 其他 None=不限)
+      nas_avail           —— NAS 现在还能再写多少
+    """
+    u = shutil.disk_usage(drive + ':\\')
+    nas_used = drive_usage(drive)
+    nas_cap = DRIVE_CAP.get(drive)
+    nas_avail = u.free - RESERVE
+    if nas_cap is not None:
+        nas_avail = min(nas_avail, nas_cap - nas_used)
+    nas_avail = max(nas_avail, 0)
+    return {
+        'drive':     drive,
+        'total':     u.total,     # 整盘总容量
+        'free':      u.free,      # 整盘剩余(系统占用已扣)
+        'used':      u.used,      # 整盘已用(含系统文件)
+        'nas_used':  nas_used,    # NAS 自己占的
+        'nas_cap':   nas_cap,     # 单盘上限(None=不限)
+        'nas_avail': nas_avail,   # NAS 还能写多少
+    }
+
+
+# ================= 页面 =================
+
+@app.route('/')
+def index_page():
+    return render_template('index.html')
+
+
+@app.route('/readme')
+def readme_page():
+    return render_template('readme.html')
+
+
+# ================= 管理员入口 (/admin1/) =================
+_login_fail = {}        # ip -> [失败次数, 解锁时间戳]
+LOCK_AFTER = 5          # 连错 5 次
+LOCK_SECONDS = 120      # 锁 2 分钟
+
+
+@app.route(ADMIN_PATH)
+def admin_page():
+    return render_template('admin1.html', admin=_is_admin())
+
+
+@app.route(ADMIN_PATH + 'login', methods=['POST'])
+def admin_login():
+    ip = request.remote_addr or '?'
+    cnt, until = _login_fail.get(ip, [0, 0])
+    left = int(until - time.time())
+    if left > 0:
+        nlog.err('管理员登录被锁定: %s (还剩 %ds)' % (ip, left))
+        return jsonify({'ok': False, 'error': '错太多次了，等 %d 秒再来喵' % left}), 429
+
+    if request.is_json:
+        pw = (request.get_json(silent=True) or {}).get('password', '')
+    else:
+        pw = request.form.get('password', '')
+
+    if not nas_auth.verify_password(pw):
+        cnt += 1
+        _login_fail[ip] = [cnt, time.time() + LOCK_SECONDS if cnt >= LOCK_AFTER else 0]
+        nlog.err('管理员口令错误: %s (第 %d 次)' % (ip, cnt))
+        return jsonify({'ok': False, 'error': '口令不对喵 (第 %d 次)' % cnt}), 401
+
+    _login_fail.pop(ip, None)
+    resp = jsonify({'ok': True})
+    resp.set_cookie(nas_auth.COOKIE_NAME, nas_auth.make_token(),
+                    max_age=nas_auth.TOKEN_DAYS * 86400,
+                    httponly=True, samesite='Lax')
+    nlog.ok('管理员登录成功: %s' % ip)
+    return resp
+
+
+@app.route(ADMIN_PATH + 'logout', methods=['GET', 'POST'])
+def admin_logout():
+    resp = redirect(ADMIN_PATH) if request.method == 'GET' else jsonify({'ok': True})
+    resp.delete_cookie(nas_auth.COOKIE_NAME)
+    nlog.info('管理员退出登录: %s' % (request.remote_addr or '?'))
+    return resp
+
+
+# ================= API =================
+
+@app.route('/api/whoami')
+def api_whoami():
+    """前端启动时问一句: 我现在是谁?"""
+    lv = cur_level()
+    return jsonify({'level': lv, 'admin': lv == 'admin'})
+
+@app.route('/api/disks')
+def api_disks():
+    """
+    返回每个盘的详细用量:
+      total/free/used  整盘(含系统文件)
+      nas_used         NAS 自己占多少
+      nas_cap          单盘上限(C=100MB, 其他 null)
+      nas_avail        NAS 还能写多少
+    前端展示请用 nas_used/nas_avail 作为主数字, 整盘数字放括号里当参考。
+    """
+    err = need_auth()
+    if err:
+        return err
+    out = []
+    for d in drives():
+        s = disk_stat(d)
+        nlog.detail('  磁盘 %s: 整盘 用%s/总%s (剩%s) | NAS占用 %s%s | NAS可写 %s' % (
+            d,
+            _human(s['used']), _human(s['total']), _human(s['free']),
+            _human(s['nas_used']),
+            (' /上限' + _human(s['nas_cap'])) if s['nas_cap'] else '',
+            _human(s['nas_avail'])))
+        out.append(s)
+    return jsonify(out)
+
+
+@app.route('/api/files')
+def api_files():
+    err = need_auth()
+    if err:
+        return err
+    with _lock:
+        idx = load_index()
+    files = sorted(idx.values(), key=lambda e: e.get('time', 0), reverse=True)
+    nlog.detail('  索引条目: %d 个' % len(files))
+    return jsonify(files)
+
+
+@app.route('/api/upload', methods=['POST'])
+def api_upload():
+    lv = cur_level()
+    if not lv:
+        return jsonify({'error': '需要密码'}), 401
+    if lv == 'low':
+        return jsonify({'error': '低等级账号只能下载，不能上传'}), 403
+    ct = (request.headers.get('Content-Type') or '').lower()
+    if ct.startswith('multipart/'):
+        # 老式 multipart (兼容旧页面/工具)
+        f = request.files.get('file')
+        if not f:
+            nlog.err('上传请求 multipart 但没带文件字段')
+            return jsonify({'error': '没收到文件'}), 400
+        name = request.form.get('path') or f.filename or 'unnamed'
+        src = f.stream
+        mode = 'multipart'
+    else:
+        # 新式: 原始字节流直传, 边收边写, 不过临时文件
+        # 文件名放 URL: POST /api/upload?name=xxx
+        name = request.args.get('name') or 'unnamed'
+        src = request.stream
+        mode = 'raw-stream'
+    name = name.replace('\\', '/').lstrip('/')
+    nlog.detail('  接收方式: %s | 目标路径: %s' % (mode, name or '(根目录)'))
+
+    global _cleaned
+    if not _cleaned:
+        _cleaned = True
+        clean_junk_chunks()
+
+    init_dirs()
+    t0 = time.time()
+    try:
+        with _lock:
+            chunks, nbytes = stream_to_chunks(src, name)
+            idx = load_index()
+            fid = uuid.uuid4().hex[:12]
+            idx[fid] = {
+                'id': fid,
+                'name': name,
+                'size': nbytes,
+                'chunks': chunks,
+                'time': time.time(),
+                'is_dir': False,
+            }
+            save_index(idx)
+        nlog.ok('上传完成: "%s" %s / %d块 / %.2fs' % (
+            name, _human(nbytes), len(chunks), time.time() - t0))
+        return jsonify({'ok': True, 'id': fid, 'name': name})
+    except NoSpaceError as e:
+        nlog.err('空间不足, 上传失败: %s' % e)
+        return jsonify({'error': str(e)}), 507
+    except Exception as e:
+        nlog.err('上传异常: %s (%s)' % (e, type(e).__name__))
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/mkdir', methods=['POST'])
+def api_mkdir():
+    """新建文件夹 (虚拟文件夹, 靠路径前缀组织)"""
+    err = need_admin()
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    name = (data.get('path') or '').strip().strip('/').replace('\\', '/')
+    if not name:
+        return jsonify({'error': '文件夹名不能为空'}), 400
+    if name in ('.', '..') or '..' in name.split('/'):
+        nlog.err('mkdir 拒绝非法路径: "%s"' % name)
+        return jsonify({'error': '文件夹名不合法'}), 400
+    with _lock:
+        idx = load_index()
+        # 同名检查
+        prefix = name + '/'
+        for e in idx.values():
+            if e['name'] == name or e['name'].startswith(prefix):
+                nlog.err('mkdir 冲突: "%s" 已存在同名文件/文件夹' % name)
+                return jsonify({'error': '同名文件夹或里面的文件已存在'}), 400
+        fid = uuid.uuid4().hex[:12]
+        idx[fid] = {'id': fid, 'name': name, 'size': 0,
+                    'chunks': [], 'time': time.time(), 'is_dir': True}
+        save_index(idx)
+    nlog.ok('新建文件夹: "%s" (id=%s)' % (name, fid))
+    return jsonify({'ok': True, 'id': fid, 'name': name})
+
+
+@app.route('/api/download/<fid>')
+def api_download(fid):
+    if not cur_level():
+        return jsonify({'error': '需要密码'}), 401
+    with _lock:
+        idx = load_index()
+    entry = idx.get(fid)
+    if not entry or entry.get('is_dir'):
+        nlog.err('下载失败: 找不到文件 id=%s (可能已删除)' % fid)
+        abort(404)
+
+    def generate():
+        try:
+            for part in iter_entry_data(entry):
+                yield part
+            nlog.ok('下载完成: "%s" %s / %d块' % (
+                entry['name'], _human(entry.get('size', 0)), len(entry['chunks'])))
+        except Exception as e:
+            nlog.err('下载中断 "%s": %s' % (entry['name'], e))
+            raise
+
+    nlog.detail('开始下载: "%s" %s / %d块 (id=%s)' % (
+        entry['name'], _human(entry.get('size', 0)), len(entry['chunks']), fid))
+    fname = os.path.basename(entry['name']) or 'download'
+    from io import BytesIO
+    resp = app.response_class(generate(), mimetype='application/octet-stream')
+    from urllib.parse import quote
+    resp.headers['Content-Disposition'] = f"attachment; filename*=UTF-8''{quote(fname)}"
+    return resp
+
+
+# ---- 在线预览 (图片/视频/音频/文本直接看, 其它仍走下载) ----
+_MIME = {
+    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'gif': 'image/gif',
+    'webp': 'image/webp', 'bmp': 'image/bmp', 'ico': 'image/x-icon', 'svg': 'image/svg+xml',
+    'avif': 'image/avif', 'jfif': 'image/jpeg',
+    'mp4': 'video/mp4', 'm4v': 'video/x-m4v', 'webm': 'video/webm', 'ogv': 'video/ogg',
+    'mov': 'video/quicktime', 'mkv': 'video/x-matroska', 'avi': 'video/x-msvideo',
+    'mp3': 'audio/mpeg', 'm4a': 'audio/mp4', 'aac': 'audio/aac', 'flac': 'audio/flac',
+    'wav': 'audio/wav', 'ogg': 'audio/ogg', 'opus': 'audio/opus',
+    'pdf': 'application/pdf', 'txt': 'text/plain',
+    'md': 'text/plain', 'log': 'text/plain',
+    'json': 'application/json', 'csv': 'text/csv',
+}
+
+
+@app.route('/api/raw/<fid>')
+def api_raw(fid):
+    """在线预览: inline 输出 + HTTP Range 支持 (视频拖进度条必须要 Range)"""
+    with _lock:
+        idx = load_index()
+    entry = idx.get(fid)
+    if not entry or entry.get('is_dir'):
+        nlog.err('预览失败: 找不到文件 id=%s' % fid)
+        abort(404)
+
+    total = int(entry.get('size', 0))
+    name = entry['name']
+    ext = (name.rsplit('.', 1)[-1] if '.' in name else '').lower()
+    mime = _MIME.get(ext, 'application/octet-stream')
+    if total <= 0:
+        return app.response_class(b'', mimetype=mime)
+
+    start, end, code = 0, total - 1, 200
+    rng = (request.headers.get('Range') or '').strip()
+    if rng.startswith('bytes='):
+        m = re.match(r'(\d*)-(\d*)$', rng[6:])
+        if m:
+            g1, g2 = m.group(1), m.group(2)
+            if g1:
+                start = int(g1)
+                end = int(g2) if g2 else total - 1
+            elif g2:                       # bytes=-N  最后 N 字节
+                start = max(0, total - int(g2))
+                end = total - 1
+            if start >= total or start > end:
+                r = app.response_class(status=416)
+                r.headers['Content-Range'] = 'bytes */%d' % total
+                return r
+            end = min(end, total - 1)
+            code = 206
+
+    length = end - start + 1
+
+    def gen():
+        pos = 0
+        for part in iter_entry_data(entry):
+            if pos + len(part) <= start:
+                pos += len(part)
+                continue
+            if pos < start:
+                part = part[start - pos:]
+                pos = start
+            take = end - pos + 1
+            if len(part) > take:
+                part = part[:take]
+            pos += len(part)
+            yield part
+            if pos > end:
+                return
+
+    resp = app.response_class(gen(), status=code, mimetype=mime)
+    resp.headers['Accept-Ranges'] = 'bytes'
+    resp.headers['Content-Length'] = str(length)
+    resp.headers['Cache-Control'] = 'private, max-age=300'
+    if code == 206:
+        resp.headers['Content-Range'] = 'bytes %d-%d/%d' % (start, end, total)
+    from urllib.parse import quote
+    resp.headers['Content-Disposition'] = \
+        "inline; filename*=UTF-8''" + quote(os.path.basename(name))
+    if code == 200:
+        nlog.detail('预览: "%s" (%s)' % (name, mime))
+    return resp
+
+
+@app.route('/api/delete/<fid>', methods=['POST'])
+def api_delete(fid):
+    err = need_admin()
+    if err:
+        return err
+    with _lock:
+        idx = load_index()
+        entry = idx.pop(fid, None)
+        if not entry:
+            nlog.err('删除失败: 找不到 id=%s' % fid)
+            return jsonify({'error': '文件不存在'}), 404
+        victims = [entry]
+        if entry.get('is_dir'):
+            # 文件夹: 连里面所有东西一起删
+            prefix = entry['name'] + '/'
+            victims += [e for e in idx.values() if e['name'].startswith(prefix)]
+            for e in victims[1:]:
+                idx.pop(e['id'], None)
+            nlog.detail('  删除文件夹 "%s" 含 %d 个子项' % (entry['name'], len(victims) - 1))
+        removed_blocks = 0
+        for e in victims:
+            for p in e.get('chunks', []):
+                try:
+                    os.remove(p)
+                    removed_blocks += 1
+                except OSError:
+                    pass
+        save_index(idx)
+    nlog.ok('删除完成: "%s" (%s, 清掉 %d 个存储块)' % (
+        entry['name'], _human(entry.get('size', 0)), removed_blocks))
+    return jsonify({'ok': True})
+
+
+@app.route('/api/repair', methods=['POST'])
+def api_repair():
+    err = need_admin()
+    if err:
+        return err
+    """
+    索引抢救: 扫描所有盘的 NAS 文件夹里的 nas 文件, 按修改时间顺序重建索引。
+    有 [n"..."] 头部的块 = 新文件开头, 没头部的块 = 上一文件的续块。
+    """
+    nlog.info('开始索引重建: 扫描所有盘的 nas 块...')
+    found = []
+    for d in drives():
+        nd = nas_dir(d)
+        if os.path.isdir(nd):
+            for fn in os.listdir(nd):
+                if fn.startswith('nas') and fn != 'index.json':
+                    p = os.path.join(nd, fn)
+                    found.append((os.path.getmtime(p), p))
+    found.sort()
+    nlog.detail('  共发现 %d 个 nas 块' % len(found))
+
+    init_dirs()
+    new_idx = {}
+    cur = None
+    for mtime, p in found:
+        if p.endswith('.tmp'):
+            continue
+        try:
+            with open(p, 'rb') as f:
+                head = f.read(8192)
+        except OSError:
+            continue
+        name, _ = parse_header(head)
+        if name is not None:
+            fid = uuid.uuid4().hex[:12]
+            cur = {'id': fid, 'name': name, 'size': os.path.getsize(p),
+                   'chunks': [p], 'time': mtime, 'is_dir': False}
+            new_idx[fid] = cur
+            nlog.detail('  新文件: "%s" <- %s' % (name, p))
+        elif cur is not None:
+            cur['chunks'].append(p)
+            cur['size'] += os.path.getsize(p)
+            nlog.detail('  续块: %s -> "%s"' % (p, cur['name']))
+        else:
+            nlog.warn('  孤儿续块无人认领, 跳过: %s' % p)
+            continue  # 孤儿续块, 没人认领, 跳过
+
+    with _lock:
+        save_index(new_idx)
+    nlog.ok('索引重建完成: 恢复 %d 个文件' % len(new_idx))
+    return jsonify({'ok': True, 'count': len(new_idx)})
+
+
+# ================= 启动 =================
+
+def _boot_log():
+    """开机启动详细日志 (Linux 启动风格)"""
+    nlog.banner(' MiniNAS 家庭内网NAS 启动序列 ',
+                'verbose boot - %s python %s' % (platform.system(), platform.python_version()))
+    # 0. 环境
+    nlog.info('Python: %s (%s)' % (platform.python_version(), platform.architecture()[0]))
+    nlog.info('平台: %s %s' % (platform.system(), platform.release()))
+    # 1. 配置
+    nlog.detail('配置: HOST=%s PORT=%d 候选盘=%s 单块上限=%s' % (
+        HOST, PORT, '/'.join(DRIVE_LETTERS), _human(DRIVE_CAP.get('C', 0)) + '(C盘兜底)'))
+    # 2. 磁盘检测 (区分整盘和 NAS 占用)
+    nlog.info('检测可用磁盘 (整盘容量含系统文件, NAS占用只算 NAS 文件夹)...')
+    ds = drives()
+    if not ds:
+        nlog.err('没有任何可用磁盘! (C/D/E 都不存在?) 服务可能无法正常工作')
+    for d in DRIVE_LETTERS:
+        if d in ds:
+            s = disk_stat(d)
+            nlog.ok('  磁盘 %s:\\ 在线 | 整盘 用 %s / 总 %s (剩 %s) | NAS占用 %s%s | NAS可写 %s' % (
+                d,
+                _human(s['used']), _human(s['total']), _human(s['free']),
+                _human(s['nas_used']),
+                (' /上限' + _human(s['nas_cap'])) if s['nas_cap'] else '',
+                _human(s['nas_avail'])))
+        else:
+            nlog.detail('  磁盘 %s:\\ 不存在, 跳过' % d)
+    # 3. 目录初始化
+    init_dirs()
+    nlog.ok('初始化存储目录: ' + (', '.join(nas_dir(d) for d in ds) if ds else '(无)'))
+    # 4. 索引
+    idx = load_index()
+    nlog.ok('加载文件索引: %d 条记录 @ %s' % (len(idx), index_path() or '(无可用盘)'))
+    # 5. 孤儿块清理
+    try:
+        clean_junk_chunks()
+    except Exception as e:
+        nlog.warn('孤儿块扫描异常(不影响启动): %s' % e)
+    # 6. 路由表
+    nlog.info('注册路由表:')
+    for rule in sorted(app.url_map.iter_rules(), key=lambda r: r.rule):
+        methods = ','.join(sorted(m for m in rule.methods if m not in ('HEAD', 'OPTIONS')))
+        nlog.detail('  %-8s %s' % (methods, rule.rule))
+    # 7. 完成
+    nlog.line()
+    nlog.ok('启动序列完成, 监听 %s:%d (waitress 生产级)' % (HOST, PORT))
+    nlog.info('  本机访问  : http://localhost/')
+    nlog.info('  局域网访问: http://<这台电脑的IP>/  (端口%d)' % PORT)
+    nlog.info('  管理员后台: http://<这台电脑的IP>%s (口令保护, 可删文件)' % ADMIN_PATH)
+    nlog.info('  扫描器蜜罐: robots/ws/admin/sitemap -> 418 I am a teapot')
+    nlog.line()
+
+
+if __name__ == '__main__':
+    _boot_log()
+    try:
+        try:
+            from waitress import serve
+            nlog.ok('HTTP服务器: waitress (生产级, 大文件稳) | 线程数=8')
+            nlog.detail('配置: channel_timeout=7200s | max_request_body_size=100GB(防大文件掐线)')
+            # 大文件单请求可能挂很久: channel_timeout 给足, 别掐断慢WiFi
+            # 关键: waitress 默认单请求上限1GB! 超过直接掐线(表现为"网络中断") → 放开到100GB
+            serve(app, host=HOST, port=PORT, threads=8,
+                  channel_timeout=7200,
+                  max_request_body_size=100 * 1024 * 1024 * 1024)
+        except ImportError:
+            nlog.warn('没装 waitress, 退回开发服务器(大文件易400/断连)')
+            nlog.warn('建议: pip install waitress  然后重启')
+            app.run(host=HOST, port=PORT, threaded=True)
+    except OSError as e:
+        nlog.line()
+        nlog.err('端口 %d 被占用了! (%s)' % (PORT, e))
+        nlog.info('  最常见原因: IIS / World Wide Web Publishing Service')
+        nlog.info('  解决: 用管理员身份打开CMD, 执行:')
+        nlog.info('      net stop w3svc')
+        nlog.info('      net stop was /y')
+        nlog.info('  然后重新双击「启动NAS.bat」')
+        nlog.line()
+        input('按回车键退出...')

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ code }} - 迷你网盘</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --blue: #1e6fd9;
+    --blue-dark: #1558b0;
+    --dark: #2b2b2b;
+    --bg: #ffffff;
+    --text: #1a1a1a;
+    --muted: #7a7a7a;
+    --line: #e5e5e5;
+  }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    text-align: center;
+    max-width: 520px;
+    width: 100%;
+    padding: 40px 32px 32px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.06);
+  }
+  /* 状态码颜色: 4xx=红 5xx=深红 (跟日志配色一伙的) */
+  {% if code >= 500 %} .code { color: #b3002d; }
+  {% elif code >= 400 %} .code { color: #d93a2b; }
+  {% else %}             .code { color: var(--blue); } {% endif %}
+  .code {
+    font-size: 96px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: 2px;
+    user-select: none;
+  }
+  .badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #fdecea;
+    color: #d93a2b;
+    border: 1px solid #f5c6c0;
+  }
+  .badge.deep { background: #fbeaef; color: #b3002d; border-color: #eeb8c8; }
+  .title { margin-top: 18px; font-size: 24px; font-weight: 700; }
+  .msg { margin-top: 10px; font-size: 14px; color: var(--muted); line-height: 1.7; }
+  .path {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    background: #f7f7f7;
+    border-radius: 8px;
+    padding: 8px 12px;
+    word-break: break-all;
+    font-family: Consolas, "Courier New", monospace;
+  }
+  .actions { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    border: none;
+    background: var(--dark);
+    color: #fff;
+    border-radius: 20px;
+    padding: 9px 20px;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .15s, transform .1s;
+    display: inline-block;
+  }
+  .btn:hover { background: var(--blue); }
+  .btn:active { background: var(--blue-dark); transform: scale(.96); }
+  .btn-blue { background: var(--blue); }
+  .btn-blue:hover { background: var(--blue-dark); }
+  .foot { margin-top: 22px; font-size: 11px; color: #bbb; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="code">{{ code }}</div>
+    {% if code >= 500 %}
+    <span class="badge deep">[Err] 服务器级别</span>
+    {% elif code >= 400 %}
+    <span class="badge">[Err] 请求级别</span>
+    {% else %}
+    <span class="badge" style="background:#eaf3fd;color:#1e6fd9;border-color:#bcd9f5;">[OK] 其他</span>
+    {% endif %}
+
+    <div class="title">{{ title }}</div>
+    <div class="msg">{{ msg }}</div>
+
+    {% if path %}
+    <div class="path">{{ path }}</div>
+    {% endif %}
+
+    <div class="actions">
+      <a class="btn btn-blue" href="/">← 返回首页</a>
+      <a class="btn" href="javascript:location.reload()">刷新重试</a>
+    </div>
+    <div class="foot">迷你网盘 · 该事件已写入日志</div>
+  </div>
+</body>
+</html>

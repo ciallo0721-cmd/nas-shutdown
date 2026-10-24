@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>迷你网盘 - 公共网盘</title>
+<link rel="stylesheet" href="/static/style.css?v=13">
+</head>
+<body>
+
+<!-- 公告横幅: 使用须知/免责声明 -->
+<a id="notice-banner" href="/readme" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#fff8e1;border-bottom:1px solid #f0c36d;color:#8a5a00;font-size:13px;text-decoration:none;">
+  <span>📢</span><span><b>公告：</b>迷你网盘为公共网盘，任何人可上传/访问/删除；2027年6月拆除，请自行备份文件。违规/破坏会被记录。点击查看 →</span>
+</a>
+
+<!-- 顶栏: 左=小中大(图标大小) 右=新建文件夹/刷新/上传 -->
+<header class="topbar">
+  <div class="size-group">
+    <button class="rbtn size-btn" data-size="s" title="小图标">小</button>
+    <button class="rbtn size-btn active" data-size="m" title="中图标">中</button>
+    <button class="rbtn size-btn" data-size="l" title="大图标">大</button>
+  </div>
+  <div class="top-actions">
+    <button id="btn-mkdir" class="rbtn">新建文件夹</button>
+    <button id="btn-refresh" class="rbtn rbtn-blue" title="刷新">刷新</button>
+    <button id="btn-upload" class="rbtn" title="上传">上传</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- 左侧栏 -->
+  <aside class="sidebar">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-input" placeholder="搜索">
+    </div>
+
+    <div class="side-group">
+      <button class="rbtn sort-btn" data-sort="name">按名称排序</button>
+      <button class="rbtn sort-btn" data-sort="size">按大小排序</button>
+      <button class="rbtn sort-btn active" data-sort="date">按日期排序</button>
+    </div>
+
+    <div class="side-msg">
+      <div id="upload-queue" class="upload-queue" hidden></div>
+      <div id="toast" class="toast" hidden></div>
+    </div>
+
+    <!-- 左下角: NAS 已用 / 可写 (悬停看每盘明细) -->
+    <div class="disk-box" id="disk-box">
+      <div class="disk-free-text">NAS <span id="nas-used-text">--</span> / <span id="nas-avail-text">--</span></div>
+      <div class="bar disk-bar"><div id="disk-fill" class="bar-fill"></div></div>
+    </div>
+  </aside>
+
+  <!-- 主区域 -->
+  <main class="main">
+    <nav id="breadcrumb" class="breadcrumb"></nav>
+    <div id="grid-view" class="grid-view"></div>
+    <div id="empty-tip" class="empty-tip" hidden>空空如也~ 点右上「上传」或直接拖文件进来吧</div>
+  </main>
+</div>
+
+<input type="file" id="file-input" multiple hidden>
+<input type="file" id="folder-input" webkitdirectory multiple hidden>
+
+<!-- 手机点文件: 底部操作弹层 (防误触下载) -->
+<div id="file-sheet" class="file-sheet" hidden>
+  <div class="sheet-card">
+    <div class="sheet-name" id="sheet-name"></div>
+    <div class="sheet-meta" id="sheet-meta"></div>
+    <div class="sheet-actions">
+      <button class="rbtn rbtn-blue" id="sheet-download">下载</button>
+      <button class="rbtn" id="sheet-del">删除</button>
+      <button class="rbtn" id="sheet-cancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js?v=13"></script>
+</body>
+</html>

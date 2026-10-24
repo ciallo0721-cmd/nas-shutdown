@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>迷你网盘 · MiniNAS</title>
+<link rel="stylesheet" href="/static/style.css?v=15">
+</head>
+<body>
+
+<!-- 公告横幅 -->
+<a id="notice-banner" href="/readme">
+  <span class="nb-dot"></span>
+  <span><b>公告：</b>内网迷你网盘 —— 任何人都能浏览 / 上传 / 在线预览；<b>删除</b>和<b>新建文件夹</b>仅管理员可操作。2027 年 6 月拆除，请自行备份文件。点此查看说明 →</span>
+</a>
+
+<!-- 顶栏 -->
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">📁</span>
+    <span class="brand-name">迷你网盘</span>
+    <span class="ver">v14</span>
+  </div>
+
+  <div class="size-group">
+    <button class="rbtn size-btn" data-size="s" title="小图标">小</button>
+    <button class="rbtn size-btn active" data-size="m" title="中图标">中</button>
+    <button class="rbtn size-btn" data-size="l" title="大图标">大</button>
+  </div>
+
+  <div class="top-actions">
+    <span id="who-chip" class="who-chip" title="点击切换身份 / 登录管理员">游客</span>
+    <button id="btn-mkdir" class="rbtn">新建文件夹</button>
+    <button id="btn-refresh" class="rbtn rbtn-blue" title="刷新">刷新</button>
+    <button id="btn-upload" class="rbtn rbtn-ghost" title="上传文件">＋ 上传</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- 左侧栏 -->
+  <aside class="sidebar">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-input" placeholder="搜索文件名…">
+    </div>
+
+    <div class="side-group">
+      <button class="rbtn sort-btn" data-sort="name">按名称</button>
+      <button class="rbtn sort-btn" data-sort="size">按大小</button>
+      <button class="rbtn sort-btn active" data-sort="date">按日期</button>
+    </div>
+
+    <div class="side-msg">
+      <div id="upload-queue" class="upload-queue" hidden></div>
+      <div id="toast" class="toast" hidden></div>
+    </div>
+
+    <div class="disk-box" id="disk-box">
+      <div class="disk-free-text">NAS <span id="nas-used-text">--</span> / <span id="nas-avail-text">--</span></div>
+      <div class="bar disk-bar"><div id="disk-fill" class="bar-fill"></div></div>
+    </div>
+  </aside>
+
+  <!-- 主区域 -->
+  <main class="main">
+    <nav id="breadcrumb" class="breadcrumb"></nav>
+    <div id="grid-view" class="grid-view"></div>
+    <div id="empty-tip" class="empty-tip" hidden>
+      <div class="empty-emoji">🫧</div>
+      <div>空空如也 ~ 点右上「＋ 上传」或直接把文件拖进来</div>
+    </div>
+  </main>
+</div>
+
+<input type="file" id="file-input" multiple hidden>
+<input type="file" id="folder-input" webkitdirectory multiple hidden>
+
+<!-- 手机点文件: 底部操作弹层 -->
+<div id="file-sheet" class="file-sheet" hidden>
+  <div class="sheet-card">
+    <div class="sheet-name" id="sheet-name"></div>
+    <div class="sheet-meta" id="sheet-meta"></div>
+    <div class="sheet-actions">
+      <button class="rbtn rbtn-blue" id="sheet-view">在线看</button>
+      <button class="rbtn" id="sheet-download">下载</button>
+      <button class="rbtn" id="sheet-del">删除</button>
+      <button class="rbtn" id="sheet-cancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 在线预览: 图片灯箱 / 视频音频播放器 / 文本 -->
+<div id="viewer" class="viewer" hidden>
+  <div class="viewer-bar">
+    <div class="viewer-name" id="viewer-name"></div>
+    <div class="viewer-tools">
+      <span class="viewer-size" id="viewer-size"></span>
+      <button class="vbtn" id="viewer-zoom" title="适应/原始大小">⤢</button>
+      <a class="vbtn" id="viewer-dl">下载</a>
+      <button class="vbtn vbtn-x" id="viewer-close">✕</button>
+    </div>
+  </div>
+  <div class="viewer-body" id="viewer-body"></div>
+  <div class="viewer-foot">
+    <button class="vbtn" id="viewer-prev">‹ 上一个</button>
+    <span id="viewer-idx" class="viewer-idx"></span>
+    <button class="vbtn" id="viewer-next">下一个 ›</button>
+  </div>
+</div>
+
+<!-- 隐形水印层: 极低对比度, 正常几乎看不见, 截图拉高对比度才浮出访客ID -->
+<div id="wm" class="wm" aria-hidden="true" hidden></div>
+
+<script src="/static/app.js?v=15"></script>
+</body>
+</html>

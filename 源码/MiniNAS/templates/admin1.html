@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理员入口 · MiniNAS</title>
+<link rel="stylesheet" href="/static/style.css?v=14">
+</head>
+<body class="admin-body">
+
+<div class="admin-glow g1"></div>
+<div class="admin-glow g2"></div>
+
+<div class="admin-wrap">
+{% if admin %}
+  <div class="admin-card">
+    <div class="admin-ico">🔓</div>
+    <h1>身份：管理员</h1>
+    <p class="admin-sub">你现在可以删除文件、新建文件夹、重建索引。</p>
+    <div class="admin-actions">
+      <a class="rbtn rbtn-blue" href="/">回到网盘</a>
+      <a class="rbtn" href="/admin1/logout">退出登录</a>
+    </div>
+    <div class="admin-note">口令以 AES-256 加密存储，明文不落盘；登录令牌 7 天有效。</div>
+  </div>
+{% else %}
+  <div class="admin-card">
+    <div class="admin-ico">🔒</div>
+    <h1>管理员入口</h1>
+    <p class="admin-sub">输入口令后即可删除文件 / 新建文件夹</p>
+    <form id="login-form" autocomplete="off">
+      <input type="password" id="pw" placeholder="管理员口令" autocomplete="current-password" autofocus>
+      <button class="rbtn rbtn-blue admin-btn" type="submit" id="btn">登 录</button>
+    </form>
+    <div class="login-err" id="err"></div>
+    <a class="back-link" href="/">← 返回网盘（游客也能浏览和上传）</a>
+    <div class="admin-note">口令经 PBKDF2 + AES-256 校验，明文不存库；连错 5 次锁 2 分钟。</div>
+  </div>
+{% endif %}
+</div>
+
+<script>
+var form = document.getElementById('login-form');
+if (form) {
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('btn');
+    var err = document.getElementById('err');
+    var pw = document.getElementById('pw').value;
+    err.textContent = '';
+    btn.disabled = true;
+    btn.textContent = '验证中…';
+    fetch('/admin1/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw })
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (res) {
+      if (res.ok && res.j.ok) {
+        btn.textContent = '登录成功，跳转中…';
+        location.href = '/admin1/';
+      } else {
+        err.textContent = (res.j && res.j.error) || '登录失败';
+        btn.disabled = false;
+        btn.textContent = '登 录';
+        document.getElementById('pw').select();
+      }
+    }).catch(function () {
+      err.textContent = '连不上服务器';
+      btn.disabled = false;
+      btn.textContent = '登 录';
+    });
+  });
+}
+</script>
+</body>
+</html>

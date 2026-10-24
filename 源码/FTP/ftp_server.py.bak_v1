@@ -1,0 +1,43 @@
+# -*- coding: utf-8 -*-
+"""
+MiniNAS-FTP - 局域网FTP服务器 (文件互传用)
+默认根目录: D:\FTP-Share  (自动创建, 随便往里扔文件)
+账号: ciallo0721_cmd / taffy   端口: 21
+"""
+import os
+from pyftpdlib.authorizers import DummyAuthorizer
+from pyftpdlib.handlers import FTPHandler
+from pyftpdlib.servers import FTPServer
+
+PORT = 21
+USER = 'ciallo0721_cmd'
+PASS = 'taffy'
+ROOT = r'C:\Users\ciallo0721_cmd'  # 用户主目录: 桌面/下载/文档都在这里
+PASV_START, PASV_END = 20000, 20050   # 被动模式端口区间
+
+def main():
+    os.makedirs(ROOT, exist_ok=True)
+
+    authorizer = DummyAuthorizer()
+    # perm = 读+写+删+改名+续传+建目录+改权限, 全给
+    authorizer.add_user(USER, PASS, ROOT, perm='elradfmwMT')
+
+    handler = FTPHandler
+    handler.authorizer = authorizer
+    handler.passive_ports = range(PASV_START, PASV_END)
+    handler.banner = 'MiniNAS-FTP ready. Hi ciallo!'
+
+    server = FTPServer(('0.0.0.0', PORT), handler)
+    print('=' * 44)
+    print('  MiniNAS-FTP 已启动!')
+    print(f'  根目录 : {ROOT}')
+    print(f'  账号   : {USER}')
+    print(f'  本机   : ftp://localhost/')
+    print(f'  局域网 : ftp://192.168.18.67/  (端口{PORT})')
+    print('  被动模式端口: %d-%d' % (PASV_START, PASV_END))
+    print('  按 Ctrl+C 停止')
+    print('=' * 44)
+    server.serve_forever()
+
+if __name__ == '__main__':
+    main()
