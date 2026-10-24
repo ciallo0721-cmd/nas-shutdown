@@ -17,9 +17,44 @@ NAS 关之前抢救出来的一点东西。**不是完整备份**，是能捞出
 
 数据包太大，不进 git 仓库，放在 Release 里：
 
-**https://github.com/ciallo0721-cmd/nas-shutdown/releases**
+**https://github.com/ciallo0721-cmd/nas-shutdown/releases/tag/v1.0.0-nas-archive**
 
-下载 `all.zip`，解压得到：
+GitHub 单文件超过 100 MB 传不稳（这包传到 53% 时连接被重置过一次），所以切成了 **6 个分卷**，六个都要下：
+
+```
+all.zip.001   90 MB
+all.zip.002   90 MB
+all.zip.003   90 MB
+all.zip.004   90 MB
+all.zip.005   90 MB
+all.zip.006   5.2 MB
+```
+
+### 合并
+
+Windows 命令提示符（在下载目录里执行）：
+
+```
+copy /b all.zip.001+all.zip.002+all.zip.003+all.zip.004+all.zip.005+all.zip.006 all.zip
+```
+
+macOS / Linux：
+
+```
+cat all.zip.00* > all.zip
+```
+
+### 校验
+
+合并后应该是 **477,359,493 字节**，MD5：
+
+```
+f881bba02e0f268277e2b68cfecd1477
+```
+
+对不上就是某一卷没下全，重下那一卷。
+
+### 解开
 
 ```
 all/
@@ -29,7 +64,7 @@ all/
   E的NAS/nas9 ...
 ```
 
-磁盘上你看到的就是一堆 `nasN`，看不到任何一张照片——因为 NAS 把每个文件切块改名存了。
+磁盘上你看到的就是一堆 `nasN`，看不到任何一张照片——因为 NAS 把文件切块改名存了。
 
 ---
 

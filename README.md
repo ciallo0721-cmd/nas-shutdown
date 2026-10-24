@@ -29,7 +29,7 @@ CNAME               自定义域名
    README.md        数据包说明 + 块格式文档
 ```
 
-数据包本体（456 MB）不在 git 里，在 [Releases](https://github.com/ciallo0721-cmd/nas-shutdown/releases)。
+数据包本体（456 MB）不在 git 里，在 [Releases](https://github.com/ciallo0721-cmd/nas-shutdown/releases/tag/v1.0.0-nas-archive)，切成 6 个 90 MB 分卷，合并方法见 [数据块/README.md](数据块/README.md)。
 
 ---
 
