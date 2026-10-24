@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAS 停服公告 · ciallo0721-cmd</title>
+<meta name="description" content="nas.ciallo0721-cmd.top 已停止服务。数据完整保留，服务器已下线。">
+<meta name="theme-color" content="#0d0b14">
+<meta property="og:title" content="NAS 停服公告">
+<meta property="og:description" content="nas.ciallo0721-cmd.top 已停止服务。灯关了，人还在屋里。">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌙</text></svg>">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-1: #0d0b14;
+    --bg-2: #17111f;
+    --ink: #f3effa;
+    --ink-soft: #a89db9;
+    --ink-faint: #6d637c;
+    --line: rgba(255, 255, 255, 0.08);
+    --glass: rgba(255, 255, 255, 0.045);
+    --glass-edge: rgba(255, 255, 255, 0.11);
+    --accent: #b39cff;
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background: radial-gradient(120% 90% at 12% 0%, #1c1330 0%, transparent 55%),
+                radial-gradient(110% 80% at 88% 100%, #12131f 0%, transparent 60%),
+                linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 55%, #100c19 100%);
+    background-attachment: fixed;
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    letter-spacing: 0.01em;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 背景光球 */
+  .orbs { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(72px);
+    opacity: 0.5;
+    will-change: transform;
+  }
+
+  .orb-1 {
+    width: 46vmin; height: 46vmin;
+    top: -10vmin; left: -8vmin;
+    background: radial-gradient(circle, rgba(124, 92, 255, 0.68), transparent 68%);
+    animation: drift-a 24s ease-in-out infinite;
+  }
+
+  .orb-2 {
+    width: 40vmin; height: 40vmin;
+    bottom: -12vmin; right: -6vmin;
+    background: radial-gradient(circle, rgba(255, 122, 184, 0.42), transparent 68%);
+    animation: drift-b 29s ease-in-out infinite;
+  }
+
+  .orb-3 {
+    width: 32vmin; height: 32vmin;
+    top: 46%; left: 62%;
+    background: radial-gradient(circle, rgba(79, 209, 197, 0.30), transparent 68%);
+    animation: drift-c 33s ease-in-out infinite;
+  }
+
+  @keyframes drift-a {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50%      { transform: translate3d(6vmin, 5vmin, 0) scale(1.12); }
+  }
+  @keyframes drift-b {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50%      { transform: translate3d(-7vmin, -4vmin, 0) scale(1.08); }
+  }
+  @keyframes drift-c {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.28; }
+    50%      { transform: translate3d(-5vmin, 6vmin, 0) scale(1.15); opacity: 0.45; }
+  }
+
+  /* 悬浮微粒 */
+  .dust { position: fixed; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
+
+  .dust i {
+    position: absolute;
+    bottom: -10px;
+    width: 2px; height: 2px;
+    border-radius: 50%;
+    background: rgba(200, 185, 255, 0.85);
+    box-shadow: 0 0 6px rgba(179, 156, 255, 0.7);
+    animation: rise linear infinite;
+  }
+
+  @keyframes rise {
+    0%   { transform: translateY(0) translateX(0); opacity: 0; }
+    12%  { opacity: var(--o, 0.5); }
+    88%  { opacity: var(--o, 0.5); }
+    100% { transform: translateY(-108vh) translateX(var(--dx, 18px)); opacity: 0; }
+  }
+
+  /* 卡片 */
+  .card {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 620px;
+    padding: 46px 44px 38px;
+    border-radius: 26px;
+    background: var(--glass);
+    border: 1px solid var(--glass-edge);
+    backdrop-filter: blur(26px) saturate(150%);
+    -webkit-backdrop-filter: blur(26px) saturate(150%);
+    box-shadow: 0 32px 90px rgba(0, 0, 0, 0.55),
+                inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    animation: enter 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes enter {
+    from { opacity: 0; transform: translateY(26px) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 14px 6px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--line);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #ff6b6b;
+    box-shadow: 0 0 10px rgba(255, 107, 107, 0.85);
+    animation: blink 2.6s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.28; }
+  }
+
+  h1 {
+    margin-top: 22px;
+    font-size: clamp(30px, 6.2vw, 42px);
+    font-weight: 700;
+    line-height: 1.28;
+    letter-spacing: 0.02em;
+    background: linear-gradient(115deg, #ffffff 0%, #e4d9ff 46%, #b9a3ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: var(--accent);
+  }
+
+  .host {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 5px 12px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid var(--line);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: #c9bcf0;
+    letter-spacing: 0;
+  }
+
+  .when {
+    margin-top: 18px;
+    font-size: 13.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+  }
+
+  .rule {
+    height: 1px;
+    margin: 30px 0 28px;
+    background: linear-gradient(90deg, transparent, var(--line) 18%, var(--line) 82%, transparent);
+  }
+
+  .body-text p {
+    font-size: 15.5px;
+    color: #ded6ec;
+    margin-bottom: 16px;
+  }
+
+  .body-text p:last-child { margin-bottom: 0; }
+
+  .body-text em {
+    font-style: normal;
+    color: #fff;
+    box-shadow: inset 0 -0.55em 0 rgba(179, 156, 255, 0.16);
+  }
+
+  .sign {
+    margin-top: 26px;
+    font-size: 14px;
+    color: var(--ink-soft);
+    letter-spacing: 0.08em;
+  }
+
+  /* 状态清单 */
+  .status {
+    margin-top: 32px;
+    border-top: 1px solid var(--line);
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 13px 2px;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+
+  .row dt { color: var(--ink-faint); letter-spacing: 0.06em; flex-shrink: 0; }
+  .row dd { color: #ddd4ee; font-weight: 500; text-align: right; }
+  .row dd.off { color: #ff8a8a; }
+  .row dd.keep { color: #7fe3c8; }
+
+  /* 底部 */
+  .foot {
+    margin-top: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 999px;
+    background: rgba(179, 156, 255, 0.11);
+    border: 1px solid rgba(179, 156, 255, 0.24);
+    color: #d7c9ff;
+    font-size: 13.5px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+                background 0.3s ease, border-color 0.3s ease;
+  }
+
+  .back:hover, .back:focus-visible {
+    background: rgba(179, 156, 255, 0.2);
+    border-color: rgba(179, 156, 255, 0.44);
+    transform: translateY(-2px);
+    outline: none;
+  }
+
+  .back span { transition: transform 0.3s ease; }
+  .back:hover span { transform: translateX(3px); }
+
+  .copy { font-size: 12px; color: var(--ink-faint); letter-spacing: 0.06em; }
+
+  @media (max-width: 560px) {
+    body { padding: 24px 14px; }
+    .card { padding: 34px 24px 28px; border-radius: 22px; }
+    .body-text p { font-size: 15px; }
+    .row { font-size: 13.5px; }
+    .foot { flex-direction: column; align-items: flex-start; }
+    .copy { order: 2; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .orb, .dot, .dust i { animation: none !important; }
+    .card { animation: none; }
+  }
+
+  ::selection { background: rgba(179, 156, 255, 0.32); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="orbs" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+<div class="dust" id="dust" aria-hidden="true"></div>
+
+<main class="card">
+  <div class="badge"><span class="dot"></span>Service Offline</div>
+
+  <h1>NAS 已经停了</h1>
+  <div class="host">nas.ciallo0721-cmd.top</div>
+  <div class="when">2026 年 10 月 24 日 · 停止对外服务</div>
+
+  <div class="rule"></div>
+
+  <div class="body-text">
+    <p>这个决定我想了整整一天，今天晚上还是按下去了。</p>
+    <p>不是它坏了，也不是撑不下去，只是<em>我该把它放下来了</em>。它在角落里跑了很久，安静地亮着灯，存着一堆我懒得整理、又舍不得删的东西。</p>
+    <p>现在服务器已经下线关机了。数据一份没少，硬盘还在原来的位置。哪天我想回来，它就还能回来。</p>
+    <p>所以这不算是告别，更像是把灯关了，人还在屋里。</p>
+  </div>
+
+  <div class="sign">—— ciallo</div>
+
+  <dl class="status">
+    <div class="row"><dt>对外访问</dt><dd class="off">已停止</dd></div>
+    <div class="row"><dt>服务器</dt><dd class="off">已下线关机</dd></div>
+    <div class="row"><dt>数据</dt><dd class="keep">完整保留</dd></div>
+    <div class="row"><dt>域名</dt><dd class="keep">保留，指向本页</dd></div>
+  </dl>
+
+  <div class="foot">
+    <a class="back" href="https://ciallo0721-cmd.top">回到主站 <span>→</span></a>
+    <div class="copy">ciallo0721-cmd.top</div>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var box = document.getElementById('dust');
+    if (!box) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    var count = window.innerWidth < 640 ? 16 : 30;
+    var frag = document.createDocumentFragment();
+
+    for (var i = 0; i < count; i++) {
+      var p = document.createElement('i');
+      var size = (Math.random() * 1.8 + 1).toFixed(1);
+      p.style.left = (Math.random() * 100).toFixed(2) + '%';
+      p.style.width = size + 'px';
+      p.style.height = size + 'px';
+      p.style.setProperty('--o', (Math.random() * 0.45 + 0.15).toFixed(2));
+      p.style.setProperty('--dx', (Math.random() * 60 - 30).toFixed(0) + 'px');
+      p.style.animationDuration = (Math.random() * 22 + 18).toFixed(1) + 's';
+      p.style.animationDelay = (-Math.random() * 30).toFixed(1) + 's';
+      frag.appendChild(p);
+    }
+
+    box.appendChild(frag);
+  })();
+</script>
+
+</body>
+</html>
